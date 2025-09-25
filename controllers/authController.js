@@ -4,32 +4,35 @@ const catchAsync = require('./../utils/catchAsync');
 const User = require('./../model/userModel');
 const jwt = require('jsonwebtoken');
 const AppError = require('./../utils/appError');
-const sendMail = require('./../utils/email');
+const Email = require('./../utils/email');
 
+// ------------------- JWT Sign -------------------
 const signToken = id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_SECRET_EXPIRE
+    expiresIn: process.env.JWT_EXPIRES_IN // e.g., "90d"
   });
 };
 
+// ------------------- Send Token -------------------
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
+  const days = Number(process.env.JWT_COOKIE_EXPIRES_IN) || '90d'; // fallback 90 days
   const cookieOptions = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-    ),
+    expires: new Date(Date.now() + days * 24 * 60 * 60 * 1000),
     httpOnly: true
   };
-  if (process.env.NODE_ENV === 'production') cookieOptions;
 
-  // Remove Password from the output
+  if (process.env.NODE_ENV === 'production') {
+    cookieOptions.secure = true;
+  }
+
   user.password = undefined;
 
-  res.cookie('jwt', token, (cookieOptions.secure = true));
+  res.cookie('jwt', token, cookieOptions);
 
   res.status(statusCode).json({
-    status: 'Success',
+    status: 'success',
     token,
     data: {
       user
@@ -37,8 +40,16 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
+console.log('JWT_EXPIRES_IN =', process.env.JWT_EXPIRES_IN);
+
 exports.signUp = catchAsync(async (req, res, next) => {
   const newUser = await User.create(req.body);
+
+  const url = `${req.protocol}://${req.get('host')}/me`;
+  await new Email(newUser, url).sendWelcome();
+
+  console.log(url);
+
   createSendToken(newUser, 201, res);
 });
 
@@ -60,8 +71,18 @@ exports.login = catchAsync(async (req, res, next) => {
   createSendToken(user, 200, res);
 });
 
-// Json WEB Token JWT
+//Lof
+exports.logout = (req, res) => {
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true
+  });
+  res.status(200).json({
+    status: 'success'
+  });
+};
 
+// Json WEB Token JWT
 exports.protect = catchAsync(async (req, res, next) => {
   // 1) Get the Token
   let token;
@@ -70,10 +91,11 @@ exports.protect = catchAsync(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
   }
-
-  // console.log(token);
   if (!token) {
+    // console.log(token);
     return next(
       new AppError('You are not logged in, please loggin to get access', 401)
     );
@@ -97,8 +119,41 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
   // GRANT ACCESS TO THE PROTECTED ROUTE
   req.user = currentUser;
+  res.locals.user = currentUser;
   next();
 });
+
+// Only for render pages; no error
+exports.isLoggedIn = async (req, res, next) => {
+  if (req.cookies.jwt) {
+    try {
+      // 1) Verify token
+      const decoded = await promisify(jwt.verify)(
+        req.cookies.jwt,
+        process.env.JWT_SECRET
+      );
+
+      // 2) Check if user still exists
+      const currentUser = await User.findById(decoded.id);
+      if (!currentUser) return next();
+
+      // 3) Check if user changed password after token was issued
+      if (await currentUser.changePasswordAfter(decoded.iat)) {
+        return next();
+      }
+
+      // ✅ There is a logged-in user
+      res.locals.user = currentUser;
+      return next();
+    } catch (err) {
+      // If token invalid/expired, just move on (not logged in)
+      return next();
+    }
+  }
+
+  // ✅ If no cookie, just move on
+  next();
+};
 
 // Role Management
 exports.restrictTo = (...roles) => {
@@ -129,12 +184,6 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   )}/api/v1/users/resetPassword/${resetToken}`;
   const message = `Forgot your password? Submit a Patch Request with your new password and PasswordConfirm to: ${resetURL}.\n if you didn't forget your password, please ignore this email`;
   try {
-    await sendMail({
-      email: user.email,
-      subject: 'Your Password Reset Token (valid for 10mins)',
-      message
-    });
-
     res.status(200).json({
       status: 'success',
       message: 'Token sent to email!'
@@ -175,7 +224,7 @@ exports.resetPassword = async (req, res, next) => {
 
 exports.updatePasword = catchAsync(async (req, res, next) => {
   // Get user from collection
-  const user = await User.findById(req.user.id).select('password');
+  const user = await User.findById(req.user.id).select('+password');
 
   // Check if POSted current password is correct
   if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
@@ -187,5 +236,5 @@ exports.updatePasword = catchAsync(async (req, res, next) => {
 
   await user.save();
   // Log user in, Send JWT
-  createSendToken(user, 200, res);
+  return createSendToken(user, 200, res);
 });

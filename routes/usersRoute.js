@@ -18,27 +18,34 @@ const router = express.Router();
 // tourRouter.route('/').get(getAllTours).post(createTour);
 // tourRouter.route('/:id').get(getTour).patch(updateTour).delete(deleteTour);
 
-router.post('/signUp', authController.signUp);
-router.get('/login', authController.login);
+router.post('/signup', authController.signUp);
+router.post('/login', authController.login);
+router.get('/logout', authController.logout);
 
-// Forgot Password
 router.post('/forgotPassword', authController.forgotPassword);
-// Reset Password
-
-router.use(authController.protect);
 router.patch('/resetPassword/:token', authController.resetPassword);
-// Update Pasword
-router.patch('/passwordUpdate/', authController.updatePasword);
-router.patch('/updateMe', userController.updateMe);
+
+// Protect all routes after this middleware
+router.use(authController.protect);
+
+router.patch(
+  '/updateMe',
+  userController.uploadUserPhoto,
+  userController.resizeUserPhoto,
+  userController.updateMe
+);
+router.patch('/updatePassword', authController.updatePasword);
 router.delete('/deleteMe', userController.deleteMe);
 
 router.route('/me').get(userController.getMe, userController.getUser);
 
+// Only admins can access below routes
 router.use(authController.restrictTo('admin'));
 router
   .route('/')
   .get(userController.allUsers)
   .post(userController.createUser);
+
 router
   .route('/:id')
   .get(userController.getUser)

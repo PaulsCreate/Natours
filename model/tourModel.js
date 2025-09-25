@@ -47,6 +47,7 @@ const tourSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    slug: String,
     priceDiscount: {
       type: Number,
       validate: {
@@ -69,7 +70,7 @@ const tourSchema = new mongoose.Schema(
       type: String,
       required: [true, 'a Tour must have a Cover Image']
     },
-    image: [String],
+    images: [String],
     created: {
       type: Date,
       default: Date.now(),
@@ -144,9 +145,11 @@ tourSchema.pre('save', function(next) {
   next();
 });
 
-tourSchema.pre('save', async function(next) {
-  const guidesPromise = this.guides.map(async id => await User.findById(id));
-  this.guides = await Promise.all(guidesPromise);
+tourSchema.pre(/^find/, function(next) {
+  this.populate({
+    path: 'guides',
+    select: '-__v -passwordChangedAt' // hide sensitive fields
+  });
   next();
 });
 

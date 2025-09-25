@@ -1,3 +1,6 @@
+const cors = require('cors');
+const axios = require('axios');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
@@ -12,6 +15,7 @@ const hpp = require('hpp');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/usersRoute');
 const reviewRoute = require('./routes/reviewRoute');
+const bookingRoute = require('./routes/bookingRoute');
 const viewRoutes = require('./routes/viewRoutes');
 
 const app = express();
@@ -40,7 +44,9 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Body parser, reading data from body into req.body
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extend: true, limit: '10kb' }));
+app.use(cookieParser());
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -72,10 +78,20 @@ app.use((req, res, next) => {
 
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
-  console.log(req.headers);
+  //console.log(req.cookies);
   next();
   // console.log(x);
 });
+
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "script-src 'self' https://cdnjs.cloudflare.com https://js.stripe.com"
+  );
+  next();
+});
+
+app.use(cors({ origin: 'http://localhost:8080', credentials: true }));
 
 // app.get('/', (req, res) => {
 //   res
@@ -93,6 +109,7 @@ app.use('/', viewRoutes);
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/reviews', reviewRoute);
+app.use('/api/v1/bookings', bookingRoute);
 
 //START SERVER
 
