@@ -1,5 +1,6 @@
 /* eslint-disable */
 import axios from 'axios';
+import showAlert from './alert';
 
 const stripe = Stripe(
   'pk_test_51SAuDMGbRXt2eNIemaIeVw2J1lj4FsJ16ZI2ggMM8qge2rfUz8i4aAGltyz2HVgj9yr4VvT8LiTRPhMuqa0E03Kj00BQbrO1os'
@@ -19,7 +20,6 @@ export const bookTour = async tourId => {
       sessionId: session.data.session.id
     });
   } catch (err) {
-    console.error('Error booking tour:', err);
-    alert('Something went wrong with booking. Please try again!');
+    showAlert('error', err);
   }
 };

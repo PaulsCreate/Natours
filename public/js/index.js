@@ -1,15 +1,16 @@
 /* eslint-disable */
 import '@babel/polyfill';
-import { login, logout } from './login';
+import { login, logout, signup } from './login';
 import { updateSettings } from './updateSettings';
-import { bookTour } from 'stripe';
+import { bookTour } from './stripe';
 
 // DOM
 const loginform = document.querySelector('.form--login');
 const logoutBtn = document.querySelector('.nav__el--logout');
 const userDataForm = document.querySelector('.form-user-data');
 const userPasswordForm = document.querySelector('.form-user-password');
-const bookBtn = document.querySelector('book-tour');
+const bookBtn = document.getElementById('book-tour');
+const signupForm = document.querySelector('.form--signup');
 if (loginform)
   loginform.addEventListener('submit', e => {
     e.preventDefault();
@@ -59,9 +60,22 @@ if (bookBtn)
 
 if (bookBtn) {
   bookBtn.addEventListener('click', e => {
-    e.target.textContent = 'Processing...'; 
+    e.target.textContent = 'Processing...';
     const { tourId } = e.target.dataset;
     bookTour(tourId);
+  });
+}
+
+if (signupForm) {
+  signupForm.addEventListener('submit', e => {
+    // e.target.textContent = 'Creating Account ....';
+    e.preventDefault();
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const passwordConfirm = document.getElementById('passwordConfirm').value;
+
+    signup(name, email, password, passwordConfirm);
   });
 }
 // console.log('Hello From Parcel');

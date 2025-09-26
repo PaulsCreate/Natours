@@ -10,4 +10,18 @@ router.get(
   bookingController.getCheckoutSession
 );
 
+router.use(authController.protect);
+
+router.use(authController.restrictTo('admin', 'lead-tour'));
+router
+  .route('/')
+  .get(bookingController.getAllBooking)
+  .post(bookingController.createBooking);
+
+router
+  .route('/:id')
+  .get(bookingController.getBooking)
+  .patch(bookingController.updateBooking)
+  .delete(bookingController.deleteBooking);
+
 module.exports = router;
