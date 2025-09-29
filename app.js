@@ -11,6 +11,7 @@ const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
+const compression = require('compression');
 
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/usersRoute');
@@ -19,6 +20,7 @@ const bookingRoute = require('./routes/bookingRoute');
 const viewRoutes = require('./routes/viewRoutes');
 
 const app = express();
+
 
 app.set('view engine', 'pug');
 app.set('views', path.join(__dirname, 'views'));
@@ -70,9 +72,10 @@ app.use(
 
 //Middleware- is basically a function that can modify an incoming request
 
+app.use(compression())
 // Test Middleware
 app.use((req, res, next) => {
-  console.log('Hello From Middleware');
+  // console.log('Hello From Middleware');
   next();
 });
 
